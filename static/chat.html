@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Group Chat</title>
+    <style>
+        /* Reset some styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Body styling */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            /* Light background color */
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            justify-content: flex-start;
+        }
+
+        /* Container for messages */
+        #messages {
+            padding: 20px;
+            flex-grow: 1;
+            overflow-y: auto;
+            background-color: #ffffff;
+            margin-bottom: 60px;
+            /* Make space for the input bar */
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        /* Message bubbles */
+        .message {
+            padding: 12px;
+            border-radius: 20px;
+            max-width: 70%;
+            position: relative;
+            display: inline-block;
+            clear: both;
+        }
+
+        /* Sent message (emitter) styling - Align right */
+        .sent {
+            background-color: #0078fe;
+            color: white;
+            align-self: flex-end;
+            /* Sent messages are right-aligned */
+            border-top-left-radius: 0;
+            text-align: left;
+        }
+
+        /* Received message styling - Align left */
+        .received {
+            background-color: #e4e6eb;
+            align-self: flex-start;
+            /* Received messages are left-aligned */
+            border-top-right-radius: 0;
+            text-align: left;
+        }
+
+        /* Message sender name styling */
+        .sender-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        /* The input area */
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            border-radius: 25px;
+            border: 1px solid #d0d3d8;
+            outline: none;
+            margin-right: 10px;
+            font-size: 14px;
+        }
+
+        /* Send button */
+        button {
+            background-color: #0078fe;
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 25px;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        button:hover {
+            background-color: #005bb5;
+        }
+
+        /* Scrollbar styling */
+        #messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        #messages::-webkit-scrollbar-thumb {
+            background: #bbb;
+            border-radius: 10px;
+        }
+
+        #messages::-webkit-scrollbar-thumb:hover {
+            background: #888;
+        }
+
+        /* Header styling */
+        h1 {
+            text-align: center;
+            font-size: 24px;
+            margin: 20px 0;
+            color: #333;
+        }
+
+        /* Chat container styling */
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            height: 100%;
+        }
+
+        /* Input bar */
+        .input-bar {
+            display: flex;
+            justify-content: space-between;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            background-color: #ffffff;
+            padding: 10px;
+            border-top: 1px solid #ddd;
+            box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+        }
+
+        /* Style for the username input */
+        .username-input {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 16px;
+            color: #333;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="chat-container">
+        <h1>Real-Time Group Chat</h1>
+        <div id="messages"></div>
+
+        <!-- Input bar -->
+        <div class="input-bar">
+            <input type="text" id="message" placeholder="Type a message..." autocomplete="off">
+            <button onclick="sendMessage()">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const socket = new WebSocket('ws://localhost:8000/ws');  // Connect to the FastAPI WebSocket server
+        let username = '';
+
+        // Handle receiving messages from the WebSocket
+        socket.onmessage = function (event) {
+            const response = JSON.parse(event.data);
+
+            // If no username yet, ask for it
+            if (!username && response.message && response.message === 'Enter your username:') {
+                username = prompt('Enter your username:');
+                socket.send(username);  // Send username to the server
+                return;
+            }
+
+            // Display message in the chat
+            const messageDiv = document.getElementById('messages');
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message');
+
+            // Create the sender name element
+            const senderNameElement = document.createElement('div');
+            senderNameElement.classList.add('sender-name');
+            senderNameElement.innerText = response.username;
+
+            // Add the sender name and message to the message element
+            messageElement.appendChild(senderNameElement);
+            const messageTextElement = document.createElement('div');
+            messageTextElement.innerText = response.message;
+            messageElement.appendChild(messageTextElement);
+
+            // Check if the message is from the current user or another user
+            if (response.username === username) {
+                messageElement.classList.add('sent');  // Sent message style (right-aligned)
+            } else {
+                messageElement.classList.add('received');  // Received message style (left-aligned)
+            }
+
+            messageDiv.appendChild(messageElement);
+            messageDiv.scrollTop = messageDiv.scrollHeight;  // Scroll to the bottom
+        };
+
+        // Send message to the WebSocket server
+        function sendMessage() {
+            const messageInput = document.getElementById('message');
+            const message = messageInput.value;
+            if (message.trim() !== "") {
+                socket.send(message);  // Send the message to the server
+                messageInput.value = "";  // Clear the input field
+            }
+        }
+
+        // Error handling
+        socket.onerror = function (error) {
+            console.error('WebSocket Error:', error);
+        };
+
+        socket.onclose = function () {
+            console.log('WebSocket connection closed');
+        };
+    </script>
+</body>
+
+</html>
