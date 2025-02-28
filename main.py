@@ -1,9 +1,11 @@
 import json
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 
 app = FastAPI()
+
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -13,7 +15,8 @@ chat_history: list[dict[str, str]] = []
 
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return FileResponse("static/chat.html")
+
 
 
 @app.websocket("/ws")
